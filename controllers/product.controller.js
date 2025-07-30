@@ -1,10 +1,56 @@
 const path = require('path')
-const db = require('../config/db')
 
-const getAllProducts = async (req, res) => {
+const { products, categories } = require('../models')
+
+const getProductList = async (req, res) => {
   try {
-    const [result] = await db.query('SELECT * FROM products')
-    res.json(result)
+    const {
+      page = 1,
+      limit = 10,
+      sort = 'id',
+      order = 'asc',
+      categoryId,
+      q,
+    } = req.query
+    const offset = (page - 1) * limit
+
+    let whereClause = {}
+    if (categoryId) {
+      whereClause.category_id = categoryId
+    }
+    if (q) {
+      whereClause.name = { [sequelize.Op.like]: `%${q}%` }
+    }
+
+    const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
+    const sortColumn = ['id', 'name', 'price'].includes(sort) ? sort : 'id'
+
+    const result = await products.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: categories,
+          as: 'category',
+          attributes: ['id', 'name'],
+        },
+      ],
+      // [['name', 'asc'], ['price', 'desc']] // Example of multiple sorting
+      order: [[sortColumn, sortOrder]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    })
+
+    const totalPages = Math.ceil(result.count / limit)
+
+    res.json({
+      data: result.rows,
+      meta: {
+        total: result.count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: totalPages,
+      },
+    })
   } catch (error) {
     console.error(error)
     res.status(500).json({ message: 'Lỗi server' })
@@ -14,12 +60,19 @@ const getAllProducts = async (req, res) => {
 const getProductById = async (req, res) => {
   try {
     const { id } = req.params
-    const [result] = await db.query('SELECT * FROM products WHERE id = ?', [id])
-
-    if (result.length === 0) {
+    const result = await products.findByPk(id, {
+      include: [
+        {
+          model: categories,
+          as: 'category',
+          attributes: ['id', 'name'],
+        },
+      ],
+    })
+    if (!result) {
       return res.status(404).json({ message: 'Không tìm thấy sản phẩm' })
     }
-    res.json(result[0])
+    res.json(result)
   } catch (error) {
     // ... xử lý lỗi
   }
@@ -28,17 +81,17 @@ const getProductById = async (req, res) => {
 const createProduct = async (req, res) => {
   try {
     const { name, price, categoryId } = req.body
-
-    const sql =
-      'INSERT INTO products (name, price, category_id) VALUES (?, ?, ?)'
-    const [result] = await db.query(sql, [name, price, categoryId])
-
-    res.status(201).json({
-      id: result.insertId,
-      ...req.body,
+    // Kiểm tra dữ liệu đầu vào
+    const newProduct = await products.create({
+      name,
+      price,
+      category_id: categoryId,
     })
+
+    res.status(201).json(newProduct)
   } catch (error) {
-    // ... xử lý lỗi
+    console.error(error)
+    res.status(500).json({ message: 'Lỗi server' })
   }
 }
 
@@ -47,21 +100,21 @@ const updateProduct = async (req, res) => {
     const { id } = req.params
     const { name, price, categoryId } = req.body
 
-    const sql =
-      'UPDATE products SET name = ?, price = ?, category_id = ? WHERE id = ?'
-    const [result] = await db.query(sql, [name, price, categoryId, id])
-
-    if (result.affectedRows === 0) {
+    const product = await products.findByPk(id)
+    if (!product) {
       return res
         .status(404)
         .json({ message: 'Không tìm thấy sản phẩm để cập nhật' })
     }
-    res.json({
-      id: id,
-      ...req.body,
-    })
+
+    product.name = name
+    product.price = price
+    product.category_id = categoryId
+    await product.save()
+    res.json(product)
   } catch (error) {
-    // ... xử lý lỗi
+    console.error(error)
+    res.status(500).json({ message: 'Lỗi server' })
   }
 }
 
@@ -69,20 +122,21 @@ const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params
 
-    const sql = 'DELETE FROM products WHERE id = ?'
-    const [result] = await db.query(sql, [id])
-
-    if (result.affectedRows === 0) {
+    const product = await products.findByPk(id)
+    if (!product) {
       return res.status(404).json({ message: 'Không tìm thấy sản phẩm để xóa' })
     }
+
+    await product.destroy()
     res.json({ message: 'Xóa sản phẩm thành công' })
   } catch (error) {
-    // ... xử lý lỗi
+    console.error(error)
+    res.status(500).json({ message: 'Lỗi server' })
   }
 }
 
 module.exports = {
-  getAllProducts,
+  getProductList,
   getProductById,
   createProduct,
   updateProduct,

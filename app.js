@@ -4,8 +4,9 @@ const morgan = require('morgan')
 const cors = require('cors')
 const { v4: uuidv4 } = require('uuid')
 
+const authRoutes = require('./routes/auth.route')
 const productRoutes = require('./routes/product.route')
-const brandRoutes = require('./routes/brand.route')
+const categoryRoutes = require('./routes/category.route')
 
 const app = express()
 
@@ -14,8 +15,9 @@ app.use(express.json())
 app.use(morgan('dev'))
 app.use(cors())
 
+app.use('/api/auth', authRoutes)
 app.use('/api/products', productRoutes)
-app.use('/api/brands', brandRoutes)
+app.use('/api/categories', categoryRoutes)
 
 app.listen(3000, () => {
   console.log('Đã chạy ok')
