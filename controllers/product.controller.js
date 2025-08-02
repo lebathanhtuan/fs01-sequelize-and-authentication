@@ -1,4 +1,5 @@
 const path = require('path')
+const { Op } = require('sequelize')
 
 const { products, categories } = require('../models')
 
@@ -16,10 +17,11 @@ const getProductList = async (req, res) => {
 
     let whereClause = {}
     if (categoryId) {
+      console.log('🚀 ~ getProductList ~ categoryId:', categoryId)
       whereClause.category_id = categoryId
     }
     if (q) {
-      whereClause.name = { [sequelize.Op.like]: `%${q}%` }
+      whereClause.name = { [Op.like]: `%${q}%` }
     }
 
     const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
