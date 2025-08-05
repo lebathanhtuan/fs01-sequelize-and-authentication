@@ -40,14 +40,22 @@ const login = async (req, res) => {
         .status(400)
         .json({ message: 'Email hoặc mật khẩu không đúng!' })
     }
-    const token = jwt.sign({ id: user.id, email: user.email }, 'TUAN', {
-      expiresIn: '1h',
-    })
+    const tokenPayload = { id: user.id, email: user.email, role: user.role }
+    const accessToken = jwt.sign(tokenPayload, 'TUAN', { expiresIn: '1h' })
+    const refreshToken = jwt.sign(tokenPayload, 'TUAN', { expiresIn: '30d' })
+
+    await user.update({ refresh_token: refreshToken })
 
     res.status(200).json({
       message: 'Login successful',
-      user: { id: user.id, username: user.username, email: user.email },
-      token: token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      accessToken: accessToken,
+      refreshToken: refreshToken,
     })
   } catch (error) {
     res.status(500).json({ message: error.message })
@@ -57,8 +65,40 @@ const login = async (req, res) => {
 const getMyProfile = async (req, res) => {
   try {
     const userId = req.user.id
-    const user = await users.findByPk(userId)
+    const user = await users.findByPk(userId, {
+      attributes: { exclude: ['password'] }, // Exclude password from response
+    })
     res.status(200).json(user)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+const refreshAccessToken = async (req, res) => {
+  const { token } = req.body
+  if (!token) {
+    return res.status(401).json({ message: 'No refresh token provided' })
+  }
+
+  try {
+    const user = await users.findOne({ where: { refresh_token: token } })
+    if (!user) {
+      return res.status(403).json({ message: 'Invalid refresh token' })
+    }
+
+    jwt.verify(token, 'TUAN', (err, decoded) => {
+      if (err || decoded.id !== user.id) {
+        return res.status(403).json({ message: 'Invalid refresh token' })
+      }
+
+      const newAccessToken = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        'TUAN',
+        { expiresIn: '1h' }
+      )
+
+      res.status(200).json({ accessToken: newAccessToken })
+    })
   } catch (error) {
     res.status(500).json({ message: error.message })
   }
@@ -68,4 +108,5 @@ module.exports = {
   register,
   login,
   getMyProfile,
+  refreshAccessToken,
 }

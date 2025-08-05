@@ -2,11 +2,12 @@ const express = require('express')
 const router = express.Router()
 
 const authController = require('../controllers/auth.controller')
-const { protect } = require('../middleware/protect')
+const { verifyToken } = require('../middleware/auth')
 
 // Auth
 router.post('/register', authController.register)
 router.post('/login', authController.login)
-router.get('/my-profile', protect, authController.getMyProfile)
+router.get('/my-profile', verifyToken, authController.getMyProfile)
+router.get('/refresh', verifyToken, authController.refreshAccessToken)
 
 module.exports = router

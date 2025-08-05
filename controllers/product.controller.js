@@ -17,7 +17,6 @@ const getProductList = async (req, res) => {
 
     let whereClause = {}
     if (categoryId) {
-      console.log('🚀 ~ getProductList ~ categoryId:', categoryId)
       whereClause.category_id = categoryId
     }
     if (q) {
