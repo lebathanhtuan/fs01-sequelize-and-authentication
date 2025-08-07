@@ -8,6 +8,8 @@ const authRoutes = require('./routes/auth.route')
 const productRoutes = require('./routes/product.route')
 const categoryRoutes = require('./routes/category.route')
 
+const errorHandler = require('./middleware/errorHandler')
+
 const app = express()
 
 app.use(express.static('public'))
@@ -18,6 +20,8 @@ app.use(cors())
 app.use('/api/auth', authRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/categories', categoryRoutes)
+
+app.use(errorHandler)
 
 app.listen(3000, () => {
   console.log('Đã chạy ok')
